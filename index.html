@@ -1,1 +1,557 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>容疑者、すぐ死ぬ</title>
+  <style>
+    /* 連打時のズーム・選択を強力に防止 */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
 
+    body {
+      font-family: 'Impact', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+      background: #111;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* ゲームコンテナ */
+    .game-container {
+      width: 100%;
+      max-width: 380px;
+      height: 100vh;
+      max-height: 680px;
+      background: #1a1a24;
+      border: 4px solid #ff2a5f;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      position: relative;
+      box-shadow: 0 0 30px rgba(255, 42, 95, 0.4);
+    }
+
+    /* ヘッダー */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #252538;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 2px solid #ff2a5f;
+    }
+
+    .title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #ff2a5f;
+      text-shadow: 0 0 8px rgba(255, 42, 95, 0.8);
+    }
+
+    .info-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    .info-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .info-label {
+      font-size: 0.65rem;
+      color: #aaa;
+    }
+
+    .info-val {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #ffd700;
+    }
+
+    /* 容疑者ステージ */
+    .stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin: 12px 0;
+      background: #0d0d14;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid #333;
+      overflow: hidden;
+    }
+
+    .suspect-avatar {
+      font-size: 5rem;
+      margin-bottom: 8px;
+      transition: transform 0.1s;
+    }
+
+    .suspect-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #fff;
+      background: #ff2a5f;
+      padding: 2px 12px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+    }
+
+    .crime-tag {
+      font-size: 0.85rem;
+      color: #ffcc00;
+      background: rgba(255, 204, 0, 0.1);
+      border: 1px solid #ffcc00;
+      padding: 4px 10px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+
+    .speech-bubble {
+      background: #2a2a3c;
+      color: #fff;
+      font-size: 0.95rem;
+      padding: 10px 14px;
+      border-radius: 12px;
+      position: relative;
+      text-align: center;
+      width: 90%;
+      border: 1px solid #444;
+    }
+
+    /* 死刑エフェクト・カットイン */
+    .effect-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 3rem;
+      font-weight: 900;
+      color: #ff003c;
+      text-shadow: 0 0 20px #ff003c, 0 0 40px #fff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 10;
+      border-radius: 16px;
+    }
+
+    .flash-red {
+      animation: flashAnim 0.25s ease-out;
+    }
+
+    @keyframes flashAnim {
+      0% { opacity: 1; background: rgba(255, 0, 60, 0.8); transform: scale(1.1); }
+      100% { opacity: 0; background: transparent; transform: scale(1); }
+    }
+
+    /* アクションボタン */
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .btn {
+      border: none;
+      padding: 16px 8px;
+      border-radius: 16px;
+      font-size: 1.2rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.4);
+      transition: transform 0.05s;
+    }
+
+    .btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.4);
+    }
+
+    .btn-release {
+      background: #00b4d8;
+      color: #fff;
+    }
+
+    .btn-execute {
+      background: #ff2a5f;
+      color: #fff;
+      border: 2px solid #ffd700;
+    }
+
+    .btn-subtext {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+
+    /* スタート / リザルト画面 */
+    .modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 10, 16, 0.95);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      text-align: center;
+      z-index: 30;
+      gap: 16px;
+    }
+
+    .modal-title {
+      font-size: 2.2rem;
+      color: #ff2a5f;
+      text-shadow: 0 0 15px #ff2a5f;
+    }
+
+    .modal-desc {
+      font-size: 0.9rem;
+      color: #ccc;
+      line-height: 1.5;
+    }
+
+    .start-btn {
+      background: #ffd700;
+      color: #111;
+      border: none;
+      padding: 14px 32px;
+      font-size: 1.3rem;
+      font-weight: 900;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+    }
+
+    /* BGMトグル */
+    .bgm-btn {
+      background: #333;
+      border: 1px solid #555;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="title">容疑者、すぐ死ぬ</div>
+    <div class="info-group">
+      <div class="info-box">
+        <span class="info-label">TIME</span>
+        <span class="info-val" id="time">30</span>
+      </div>
+      <div class="info-box">
+        <span class="info-label">SCORE</span>
+        <span class="info-val" id="score">0</span>
+      </div>
+    </div>
+    <button class="bgm-btn" id="bgm-toggle">🔊 BGM ON</button>
+  </div>
+
+  <!-- 容疑者エリア -->
+  <div class="stage">
+    <div class="effect-overlay" id="effect">⚡️即死！</div>
+    <div class="suspect-avatar" id="avatar">❓</div>
+    <div class="suspect-name" id="name">審理準備中</div>
+    <div class="crime-tag" id="crime">罪状：準備中</div>
+    <div class="speech-bubble" id="speech">「タップしてゲームを開始してください」</div>
+  </div>
+
+  <!-- アクションボタン -->
+  <div class="actions">
+    <button class="btn btn-release" id="btn-release">
+      🕊️ 釈放
+      <span class="btn-subtext">（無罪・一般人）</span>
+    </button>
+    <button class="btn btn-execute" id="btn-execute">
+      ⚡️ 即・死刑！
+      <span class="btn-subtext">（有罪・真犯人）</span>
+    </button>
+  </div>
+
+  <!-- スタート画面 -->
+  <div class="modal" id="start-modal">
+    <div class="modal-title">容疑者、すぐ死ぬ</div>
+    <div class="modal-desc">
+      次々に連行される容疑者を1秒で判別せよ！<br><br>
+      真犯人 ➔ ⚡️ <strong>即・死刑！</strong>（爆速判決）<br>
+      一般人 ➔ 🕊️ <strong>釈放</strong>（見逃し注意）<br><br>
+      ※冤罪を出すとタイムが激減します！
+    </div>
+    <button class="start-btn" id="start-btn">開廷する！</button>
+  </div>
+
+  <!-- リザルト画面 -->
+  <div class="modal" id="result-modal" style="display: none;">
+    <div class="modal-title" style="color: #ffd700;">判決終了！</div>
+    <div class="modal-desc" id="result-text"></div>
+    <button class="start-btn" onclick="restartGame()">もう一度裁く！</button>
+  </div>
+
+</div>
+
+<script>
+  // --- 容疑者データ（シュール＆理不尽） ---
+  const SUSPECTS = [
+    { name: "サトウ", avatar: "🤡", crime: "チョコモナカジャンボを割らずに食べた", speech: "これが私の生き様なんです！", isGuilty: false },
+    { name: "暗黒破壊神", avatar: "😈", crime: "明日、世界を滅ぼす儀式を完了した", speech: "ククク…我が封印は解かれた！", isGuilty: true },
+    { name: "ネコちゃん", avatar: "🐱", crime: "キーボードの上で寝て卒論を消した", speech: "ニャーン（まったく反省していない）", isGuilty: true },
+    { name: "ヤマダ", avatar: "🧔‍♂️", crime: "歩行者優先の横断歩道で立ち止まった", speech: "交通ルールを守っただけです…", isGuilty: false },
+    { name: "Dr.マッド", avatar: "👨‍🔬", crime: "街の給水塔に飲むと即死する毒を入れた", speech: "ハッハッハ！世界よ平伏せ！", isGuilty: true },
+    { name: "タナカ", avatar: "🧑‍🎓", crime: "テスト100点なのに『全然勉強してない』と言った", speech: "本当にノー勉なんすよ！信じて！", isGuilty: true },
+    { name: "ポチ", avatar: "🐶", crime: "ご主人のスリッパを隠した", speech: "バウ！（ボクじゃないワン）", isGuilty: false },
+    { name: "怪盗X", avatar: "🦹‍♂️", crime: "モナリザを盗んでレプリカと入れ替えた", speech: "フッ…私の勝ちだな", isGuilty: true },
+    { name: "宇宙人", avatar: "👽", crime: "キャベツ畑に謎のミステリーサークルを作った", speech: "ワレワレハ…アソんでいたダケ…", isGuilty: false },
+    { name: "魔王", avatar: "👹", crime: "勇者の村のタンスから布の服を盗んだ", speech: "人の家のタンスを勝手に開けるな！", isGuilty: false },
+    { name: "ゼウス", avatar: "⚡️", crime: "気に入らないやつ全員に雷を落とした", speech: "我こそが法なり！", isGuilty: true },
+    { name: "おばあちゃん", avatar: "👵", crime: "「もう食べられない」と言ってるのに飴をくれた", speech: "ほら、ポケットにもっとお入れ", isGuilty: false }
+  ];
+
+  let score = 0;
+  let timeLeft = 30;
+  let timerInterval = null;
+  let currentSuspect = null;
+  let isGameOver = true;
+
+  // --- Web Audio API（音源合成） ---
+  let audioCtx = null;
+  let bgmInterval = null;
+  let isBgmOn = true;
+
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  // 8bit風 ハイテンポBGM
+  const melody = [523, 0, 523, 392, 440, 392, 523, 0, 440, 349, 392, 329, 293, 329, 392, 0];
+  let noteIdx = 0;
+
+  function playBgmStep() {
+    if (!isBgmOn || !audioCtx || isGameOver) return;
+    const freq = melody[noteIdx % melody.length];
+    noteIdx++;
+    if (freq > 0) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.1);
+    }
+  }
+
+  // 死刑SE（雷＆爆発ドカン）
+  function playExecutionSE() {
+    if (!audioCtx) return;
+    // ノイズ（爆発音）
+    const bufSize = audioCtx.sampleRate * 0.3;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    src.start();
+
+    // 雷重低音
+    const osc = audioCtx.createOscillator();
+    const oscGain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.3);
+    oscGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.connect(oscGain);
+    oscGain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  }
+
+  // 釈放SE（シュバッ）
+  function playReleaseSE() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.12);
+  }
+
+  // --- ゲームロジック ---
+  function startGame() {
+    initAudio();
+    document.getElementById("start-modal").style.display = "none";
+    document.getElementById("result-modal").style.display = "none";
+    score = 0;
+    timeLeft = 30;
+    isGameOver = false;
+    document.getElementById("score").innerText = score;
+    document.getElementById("time").innerText = timeLeft;
+
+    nextSuspect();
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      document.getElementById("time").innerText = timeLeft;
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+
+    clearInterval(bgmInterval);
+    bgmInterval = setInterval(playBgmStep, 120);
+  }
+
+  function nextSuspect() {
+    if (isGameOver) return;
+    currentSuspect = SUSPECTS[Math.floor(Math.random() * SUSPECTS.length)];
+    document.getElementById("avatar").innerText = currentSuspect.avatar;
+    document.getElementById("name").innerText = currentSuspect.name;
+    document.getElementById("crime").innerText = "罪状：" + currentSuspect.crime;
+    document.getElementById("speech").innerText = "「" + currentSuspect.speech + "」";
+  }
+
+  function judge(action) {
+    if (isGameOver) return;
+
+    const effectEl = document.getElementById("effect");
+    const avatarEl = document.getElementById("avatar");
+
+    if (action === 'execute') {
+      // 即・死刑！
+      playExecutionSE();
+      effectEl.innerText = "⚡️ 即死！";
+      effectEl.classList.remove("flash-red");
+      void effectEl.offsetWidth; // リフロー発生
+      effectEl.classList.add("flash-red");
+      
+      avatarEl.innerText = "☠️"; // 一瞬で焦げてガイコツになる（すぐ死ぬ）
+
+      if (currentSuspect.isGuilty) {
+        score += 100;
+        timeLeft += 1;
+      } else {
+        // 冤罪ペナルティ
+        score = Math.max(0, score - 150);
+        timeLeft = Math.max(0, timeLeft - 3);
+      }
+    } else {
+      // 釈放
+      playReleaseSE();
+      if (!currentSuspect.isGuilty) {
+        score += 100;
+      } else {
+        // 犯人逃亡ペナルティ
+        score = Math.max(0, score - 100);
+        timeLeft = Math.max(0, timeLeft - 2);
+      }
+    }
+
+    document.getElementById("score").innerText = score;
+    document.getElementById("time").innerText = timeLeft;
+
+    setTimeout(nextSuspect, 150);
+  }
+
+  function endGame() {
+    isGameOver = true;
+    clearInterval(timerInterval);
+    clearInterval(bgmInterval);
+
+    let rank = "新米裁判官";
+    if (score >= 2000) rank = "⚡️ 神速の処刑神 ⚡️";
+    else if (score >= 1200) rank = "🔥 冷徹なる法執行官";
+    else if (score >= 600) rank = "⚖️ 一人前の裁判官";
+    else rank = "💀 冤罪製造マシーン";
+
+    document.getElementById("result-text").innerHTML = `
+      最終スコア: <strong style="font-size:1.5rem; color:#ffd700;">${score}</strong> 点<br><br>
+      称号: <br><strong style="font-size:1.3rem; color:#ff2a5f;">${rank}</strong>
+    `;
+    document.getElementById("result-modal").style.display = "flex";
+  }
+
+  function restartGame() {
+    startGame();
+  }
+
+  // イベント登録
+  document.getElementById("start-btn").onclick = startGame;
+  document.getElementById("btn-execute").onclick = () => judge('execute');
+  document.getElementById("btn-release").onclick = () => judge('release');
+
+  // BGM切り替え
+  document.getElementById("bgm-toggle").onclick = () => {
+    isBgmOn = !isBgmOn;
+    document.getElementById("bgm-toggle").innerText = isBgmOn ? "🔊 BGM ON" : "🔇 BGM OFF";
+  };
+</script>
+
+</body>
+</html>
